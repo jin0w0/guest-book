@@ -57,8 +57,7 @@ function EditForm({ id, message, onDone }: { id: number; message: string; onDone
     },
     { status: "idle" },
   );
-  const values = state.status === "error" ? state.values : undefined;
-  if (state.status === "gone") return <GoneNotice />;
+  const values = state.status === "idle" || state.status === "success" ? undefined : state.values;
 
   return (
     <form action={action} className="mt-2 flex flex-col gap-2">
@@ -72,7 +71,12 @@ function EditForm({ id, message, onDone }: { id: number; message: string; onDone
         defaultValue={values?.message ?? message}
         className={inputClass}
       />
-      <PasswordRow pending={pending} submitLabel="저장" onCancel={onDone} defaultValue={values?.password} />
+      {/* 방명록 글이 이미 없어도 편집하던 메시지는 남겨 둔다(다시 남길 때 복사할 수 있게). */}
+      {state.status === "gone" ? (
+        <GoneNotice />
+      ) : (
+        <PasswordRow pending={pending} submitLabel="저장" onCancel={onDone} defaultValue={values?.password} />
+      )}
       {state.status === "error" && <ErrorText>{state.error}</ErrorText>}
     </form>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { editMessageAction, removeEntryAction, type EntryFormState } from "@/app/actions";
 import { inputClass } from "./write-form";
@@ -57,6 +58,7 @@ function EditForm({ id, message, onDone }: { id: number; message: string; onDone
     { status: "idle" },
   );
   const values = state.status === "error" ? state.values : undefined;
+  if (state.status === "gone") return <GoneNotice />;
 
   return (
     <form action={action} className="mt-2 flex flex-col gap-2">
@@ -80,6 +82,7 @@ function EditForm({ id, message, onDone }: { id: number; message: string; onDone
 function RemoveForm({ id, onCancel }: { id: number; onCancel: () => void }) {
   const [state, action, pending] = useActionState(removeEntryAction, { status: "idle" });
   const values = state.status === "error" ? state.values : undefined;
+  if (state.status === "gone") return <GoneNotice />;
 
   return (
     <form action={action} className="mt-3 flex flex-col gap-2">
@@ -87,6 +90,18 @@ function RemoveForm({ id, onCancel }: { id: number; onCancel: () => void }) {
       <PasswordRow pending={pending} submitLabel="삭제" onCancel={onCancel} defaultValue={values?.password} />
       {state.status === "error" && <ErrorText>{state.error}</ErrorText>}
     </form>
+  );
+}
+
+/** 다른 곳에서 먼저 지워진 방명록 글. 안내를 읽은 뒤 목록을 새로 고친다. */
+function GoneNotice() {
+  const router = useRouter();
+
+  return (
+    <div className="mt-3 flex items-center justify-between gap-2">
+      <ErrorText>이미 삭제된 방명록 글입니다.</ErrorText>
+      <SmallButton onClick={() => router.refresh()}>확인</SmallButton>
+    </div>
   );
 }
 

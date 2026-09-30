@@ -1,5 +1,5 @@
 import { hashPassword, verifyPassword } from "./password";
-import type { EntryStore, StoredEntry } from "./store";
+import { isValidEntryId, type EntryStore, type StoredEntry } from "./store";
 import { validate, type FieldErrors } from "./validation";
 
 export type { FieldErrors } from "./validation";
@@ -39,6 +39,8 @@ type Deps ={ store: EntryStore; now?: () => Date };
 export function createGuestbook({ store, now = () => new Date() }: Deps) {
   /** 방명록 글이 있고 비밀번호가 맞으면 null, 아니면 거부 사유. */
   async function authorize(id: number, password: string): Promise<Denied | null> {
+    // 존재할 수 없는 id(조작된 요청 등)는 저장소에 묻지 않고 없는 방명록 글로 본다.
+    if (!isValidEntryId(id)) return NOT_FOUND;
     const stored = await store.findById(id);
     if (!stored) return NOT_FOUND;
     if (!(await verifyPassword(password, stored.passwordHash))) return WRONG_PASSWORD;

@@ -273,3 +273,25 @@ describe("방명록 글 삭제", () => {
     expect(await guestbook.list()).toHaveLength(2);
   });
 });
+
+describe("존재할 수 없는 id", () => {
+  it.each([
+    ["숫자가 아닌 id", Number.NaN],
+    ["0", 0],
+    ["음수", -1],
+    ["소수", 1.5],
+    ["정수 범위를 넘는 id", 2 ** 31],
+  ])("%s로 수정하거나 삭제하면 이미 삭제된 방명록 글로 거부된다", async (_, id) => {
+    const { guestbook } = setup();
+    await guestbook.write({ name: "철수", message: "안녕", password: "1234" });
+
+    expect(await guestbook.editMessage({ id, password: "1234", message: "고침" })).toEqual({
+      ok: false,
+      reason: "not-found",
+    });
+    expect(await guestbook.remove({ id, password: "1234" })).toEqual({
+      ok: false,
+      reason: "not-found",
+    });
+  });
+});

@@ -37,12 +37,11 @@ export async function writeEntryAction(
 export type EntryFormState =
   | { status: "idle" }
   | { status: "success" }
+  /** 방명록 글이 이미 없다. 안내를 보인 뒤 화면에서 목록을 새로 고친다. */
+  | { status: "gone" }
   | { status: "error"; error: string; values: { message: string; password: string } };
 
-const DENIED_MESSAGES = {
-  "wrong-password": "비밀번호가 일치하지 않습니다.",
-  "not-found": "이미 삭제된 방명록 글입니다.",
-} as const;
+const WRONG_PASSWORD_MESSAGE = "비밀번호가 일치하지 않습니다.";
 
 function entryId(formData: FormData): number {
   return Number(text(formData, "id"));
@@ -55,8 +54,9 @@ export async function editMessageAction(
   const values = { message: text(formData, "message"), password: text(formData, "password") };
   const result = await getGuestbook().editMessage({ id: entryId(formData), ...values });
   if (!result.ok) {
+    if (result.reason === "not-found") return { status: "gone" };
     const error =
-      result.reason === "invalid" ? (result.errors.message ?? "") : DENIED_MESSAGES[result.reason];
+      result.reason === "invalid" ? (result.errors.message ?? "") : WRONG_PASSWORD_MESSAGE;
     return { status: "error", error, values };
   }
 
@@ -71,7 +71,8 @@ export async function removeEntryAction(
   const password = text(formData, "password");
   const result = await getGuestbook().remove({ id: entryId(formData), password });
   if (!result.ok) {
-    return { status: "error", error: DENIED_MESSAGES[result.reason], values: { message: "", password } };
+    if (result.reason === "not-found") return { status: "gone" };
+    return { status: "error", error: WRONG_PASSWORD_MESSAGE, values: { message: "", password } };
   }
 
   revalidatePath("/");

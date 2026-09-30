@@ -63,3 +63,17 @@ export async function editMessageAction(
   revalidatePath("/");
   return { status: "success" };
 }
+
+export async function removeEntryAction(
+  _prev: EntryFormState,
+  formData: FormData,
+): Promise<EntryFormState> {
+  const password = text(formData, "password");
+  const result = await getGuestbook().remove({ id: entryId(formData), password });
+  if (!result.ok) {
+    return { status: "error", error: DENIED_MESSAGES[result.reason], values: { message: "", password } };
+  }
+
+  revalidatePath("/");
+  return { status: "success" };
+}

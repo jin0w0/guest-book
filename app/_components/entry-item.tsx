@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { editMessageAction, type EntryFormState } from "@/app/actions";
+import { editMessageAction, removeEntryAction, type EntryFormState } from "@/app/actions";
 import { inputClass } from "./write-form";
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
   edited: boolean;
 };
 
-type Mode = "view" | "edit";
+type Mode = "view" | "edit" | "remove";
 
 export function EntryItem(props: Props) {
   const [mode, setMode] = useState<Mode>("view");
@@ -33,9 +33,14 @@ export function EntryItem(props: Props) {
       ) : (
         <>
           <p className="mt-2 whitespace-pre-wrap break-words text-sm">{props.message}</p>
-          <div className="mt-3 flex justify-end gap-2">
-            <SmallButton onClick={() => setMode("edit")}>수정</SmallButton>
-          </div>
+          {mode === "remove" ? (
+            <RemoveForm id={props.id} onCancel={() => setMode("view")} />
+          ) : (
+            <div className="mt-3 flex justify-end gap-2">
+              <SmallButton onClick={() => setMode("edit")}>수정</SmallButton>
+              <SmallButton onClick={() => setMode("remove")}>삭제</SmallButton>
+            </div>
+          )}
         </>
       )}
     </li>
@@ -66,6 +71,20 @@ function EditForm({ id, message, onDone }: { id: number; message: string; onDone
         className={inputClass}
       />
       <PasswordRow pending={pending} submitLabel="저장" onCancel={onDone} defaultValue={values?.password} />
+      {state.status === "error" && <ErrorText>{state.error}</ErrorText>}
+    </form>
+  );
+}
+
+/** 성공하면 방명록 글이 목록에서 사라지므로 이 폼도 함께 없어진다. */
+function RemoveForm({ id, onCancel }: { id: number; onCancel: () => void }) {
+  const [state, action, pending] = useActionState(removeEntryAction, { status: "idle" });
+  const values = state.status === "error" ? state.values : undefined;
+
+  return (
+    <form action={action} className="mt-3 flex flex-col gap-2">
+      <input type="hidden" name="id" value={id} />
+      <PasswordRow pending={pending} submitLabel="삭제" onCancel={onCancel} defaultValue={values?.password} />
       {state.status === "error" && <ErrorText>{state.error}</ErrorText>}
     </form>
   );

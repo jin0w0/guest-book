@@ -27,7 +27,11 @@ export type Denied =
 
 export type EditResult = { ok: true } | Denied | Invalid;
 
-const NOT_FOUND = { ok: false, reason: "not-found" } as const;
+export type RemoveInput = { id: number; password: string };
+
+export type RemoveResult = { ok: true } | Denied;
+
+const NOT_FOUND ={ ok: false, reason: "not-found" } as const;
 const WRONG_PASSWORD = { ok: false, reason: "wrong-password" } as const;
 
 type Deps ={ store: EntryStore; now?: () => Date };
@@ -69,6 +73,14 @@ export function createGuestbook({ store, now = () => new Date() }: Deps) {
       // 확인과 갱신 사이에 다른 요청이 지웠을 수도 있다.
       const updated = await store.updateMessage(input.id, message, now());
       return updated ? { ok: true } : NOT_FOUND;
+    },
+
+    async remove(input: RemoveInput): Promise<RemoveResult> {
+      const denied = await authorize(input.id, input.password);
+      if (denied) return denied;
+
+      const deleted = await store.delete(input.id);
+      return deleted ? { ok: true } : NOT_FOUND;
     },
 
     async list(): Promise<Entry[]> {

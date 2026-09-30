@@ -222,3 +222,54 @@ describe("메시지 수정", () => {
     expect(result).toEqual({ ok: false, reason: "wrong-password" });
   });
 });
+
+describe("방명록 글 삭제", () => {
+  async function withEntry() {
+    const ctx = setup();
+    const result = await ctx.guestbook.write({ name: "철수", message: "안녕", password: "1234" });
+    if (!result.ok) throw new Error("setup failed");
+    return { ...ctx, id: result.entry.id };
+  }
+
+  it("맞는 비밀번호로 삭제하면 목록에서 사라진다", async () => {
+    const { guestbook, id } = await withEntry();
+
+    const result = await guestbook.remove({ id, password: "1234" });
+
+    expect(result).toEqual({ ok: true });
+    expect(await guestbook.list()).toEqual([]);
+  });
+
+  it("틀린 비밀번호로 삭제하면 비밀번호 불일치로 거부되고 방명록 글은 남는다", async () => {
+    const { guestbook, id } = await withEntry();
+
+    const result = await guestbook.remove({ id, password: "0000" });
+
+    expect(result).toEqual({ ok: false, reason: "wrong-password" });
+    expect(await guestbook.list()).toHaveLength(1);
+  });
+
+  it("이미 삭제한 방명록 글을 다시 삭제하거나 수정하면 이미 삭제된 방명록 글로 거부된다", async () => {
+    const { guestbook, id } = await withEntry();
+    await guestbook.remove({ id, password: "1234" });
+
+    expect(await guestbook.remove({ id, password: "1234" })).toEqual({
+      ok: false,
+      reason: "not-found",
+    });
+    expect(await guestbook.editMessage({ id, password: "1234", message: "고침" })).toEqual({
+      ok: false,
+      reason: "not-found",
+    });
+  });
+
+  it("이름이 같아도 다른 사람의 비밀번호로는 삭제할 수 없다", async () => {
+    const { guestbook, id } = await withEntry();
+    await guestbook.write({ name: "철수", message: "다른 철수", password: "5678" });
+
+    const result = await guestbook.remove({ id, password: "5678" });
+
+    expect(result).toEqual({ ok: false, reason: "wrong-password" });
+    expect(await guestbook.list()).toHaveLength(2);
+  });
+});

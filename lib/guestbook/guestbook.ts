@@ -1,4 +1,4 @@
-import { hashPassword } from "./password";
+import { hashPassword, verifyPassword } from "./password";
 import type { EntryStore, StoredEntry } from "./store";
 import { validate, type FieldErrors } from "./validation";
 
@@ -19,9 +19,28 @@ export type Invalid = { ok: false; reason: "invalid"; errors: FieldErrors };
 
 export type WriteResult = { ok: true; entry: Entry } | Invalid;
 
-type Deps = { store: EntryStore; now?: () => Date };
+export type EditInput = { id: number; password: string; message: string };
+
+export type Denied =
+  | { ok: false; reason: "wrong-password" }
+  | { ok: false; reason: "not-found" };
+
+export type EditResult = { ok: true } | Denied | Invalid;
+
+const NOT_FOUND = { ok: false, reason: "not-found" } as const;
+const WRONG_PASSWORD = { ok: false, reason: "wrong-password" } as const;
+
+type Deps ={ store: EntryStore; now?: () => Date };
 
 export function createGuestbook({ store, now = () => new Date() }: Deps) {
+  /** 방명록 글이 있고 비밀번호가 맞으면 null, 아니면 거부 사유. */
+  async function authorize(id: number, password: string): Promise<Denied | null> {
+    const stored = await store.findById(id);
+    if (!stored) return NOT_FOUND;
+    if (!(await verifyPassword(password, stored.passwordHash))) return WRONG_PASSWORD;
+    return null;
+  }
+
   return {
     async write(input: WriteInput): Promise<WriteResult> {
       const name = input.name.trim();
@@ -37,6 +56,19 @@ export function createGuestbook({ store, now = () => new Date() }: Deps) {
         createdAt: now(),
       });
       return { ok: true, entry: toEntry(stored) };
+    },
+
+    async editMessage(input: EditInput): Promise<EditResult> {
+      const denied = await authorize(input.id, input.password);
+      if (denied) return denied;
+
+      const message = input.message.trim();
+      const errors = validate({ message });
+      if (hasErrors(errors)) return { ok: false, reason: "invalid", errors };
+
+      // 확인과 갱신 사이에 다른 요청이 지웠을 수도 있다.
+      const updated = await store.updateMessage(input.id, message, now());
+      return updated ? { ok: true } : NOT_FOUND;
     },
 
     async list(): Promise<Entry[]> {
